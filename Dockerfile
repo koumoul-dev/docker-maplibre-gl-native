@@ -20,6 +20,6 @@ RUN git clone https://github.com/koumoul-dev/maplibre-gl-native --single-branch 
   npm install --ignore-scripts &&\
   cmake . -B build -D MBGL_WITH_EGL=ON && cmake --build build &&\
   xvfb-run -s ":99" npm run test &&\
-  mv lib ../lib &&\
+  mv lib ../ &&\
   rm -rf *
 

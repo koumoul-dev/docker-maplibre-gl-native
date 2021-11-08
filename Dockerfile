@@ -1,6 +1,5 @@
-FROM node:16-buster
+FROM node:16-buster AS builder
 ENV DEBIAN_FRONTEND noninteractive
-
 ENV DISPLAY :99.0
 
 RUN apt-get -qq update
@@ -9,17 +8,75 @@ RUN apt-get install -y --no-install-recommends \
   cmake \
   xvfb xauth
 
+
+RUN git clone https://github.com/koumoul-dev/maplibre-gl-native --single-branch --branch node-14
+
 WORKDIR /maplibre-gl-native
 
-RUN mkdir lib
+RUN  git checkout bf86ef116f245de768e95f4ed3a1d6d778e2fa0b && git submodule update --init --recursive
 
-RUN git clone https://github.com/koumoul-dev/maplibre-gl-native --single-branch --branch node-14 &&\
-  cd ./maplibre-gl-native &&\
-  git checkout bf86ef116f245de768e95f4ed3a1d6d778e2fa0b &&\
-  git submodule update --init --recursive &&\
-  npm install --ignore-scripts &&\
-  cmake . -B build -D MBGL_WITH_EGL=ON && cmake --build build &&\
-  xvfb-run -s ":99" npm run test &&\
-  mv lib ../ &&\
-  rm -rf *
+RUN  npm install --ignore-scripts
+RUN  cmake . -B build -D MBGL_WITH_EGL=ON && cmake --build build
 
+
+
+
+
+
+
+# Issue with alpine: 
+#  - xvfb-run does not run anything and just wait
+#  - libOpenGL.so.0 is missing, package mesa-gl contain only libOpenGL.so.1
+
+
+# FROM node:16-alpine AS base_image_alpine
+# ENV DISPLAY :99.0
+# RUN apk -qq update && apk add --no-cache \
+#   mesa-egl mesa-gl\
+#   xvfb xauth xvfb-run
+
+# FROM base_image_alpine AS testing_alpine
+# COPY --from=builder /maplibre-gl-native /maplibre-gl-native
+# WORKDIR /maplibre-gl-native
+# RUN Xvfb :99 -ac -screen 0 1280x720x16 -nolisten tcp & npm run test
+
+
+
+
+
+
+# Issue with 16 / 16-buster : 
+#  - Too big: ~1Go
+
+
+# Size: 1 037 310 364
+# FROM node:16 AS base_image_buster
+# RUN apt-get -qq update && apt-get install -y --no-install-recommends \
+#   libegl1 libopengl0\
+#   xvfb xauth
+
+# FROM base_image AS testing_buster
+# COPY --from=builder /maplibre-gl-native /maplibre-gl-native
+# WORKDIR /maplibre-gl-native
+# RUN  xvfb-run -a npm run test
+
+
+
+
+
+
+# Size: 344 460 975
+FROM node:16-slim AS base_image_slim
+RUN apt-get -qq update && apt-get install -y --no-install-recommends \
+  libegl1 libopengl0 libcurl4 libjpeg62-turbo libicu63\
+  xvfb xauth
+
+FROM base_image_slim AS testing_slim
+COPY --from=builder /maplibre-gl-native /maplibre-gl-native
+WORKDIR /maplibre-gl-native
+
+RUN  xvfb-run -a npm run test
+
+
+FROM base_image_slim AS final_image
+COPY --from=builder /maplibre-gl-native/lib/node-v93/mbgl.node /maplibre-gl-native/lib/node-v93/mbgl.node

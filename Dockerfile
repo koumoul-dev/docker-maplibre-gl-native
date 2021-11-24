@@ -13,7 +13,7 @@ RUN git clone https://github.com/koumoul-dev/maplibre-gl-native --single-branch 
 
 WORKDIR /maplibre-gl-native
 
-RUN  git checkout bf86ef116f245de768e95f4ed3a1d6d778e2fa0b && git submodule update --init --recursive
+RUN  git checkout deb395d04dc1da608d8cd9d10034b16a2a9acf33 && git submodule update --init --recursive
 
 RUN  npm install --ignore-scripts
 RUN  cmake . -B build -D MBGL_WITH_EGL=ON && cmake --build build
